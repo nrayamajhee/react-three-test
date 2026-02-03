@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import { useControls } from 'leva';
 import Planet from '../components/Planet';
+import DraggableCapsule from '../components/DraggableCapsule';
 
 export default function Home() {
+  const [controlsEnabled, setControlsEnabled] = useState(true);
   const {
     minResolution,
     maxResolution,
@@ -35,7 +38,7 @@ export default function Home() {
       step: 0.1,
       label: 'Step Gamma',
     },
-    radius: { value: 100, min: 10, max: 100 },
+    radius: { value: 10, min: 1, max: 10 },
     color: '#4169e1',
     wireframe: true,
   });
@@ -45,11 +48,11 @@ export default function Home() {
       <Canvas gl={{ antialias: true }}>
         <PerspectiveCamera
           makeDefault
-          position={[0, 100, 150]}
-          near={0.1}
-          far={20000}
+          position={[0, 20, 20]}
+          near={0.01}
+          far={1000}
         />
-        <OrbitControls target={[0, 0, 0]} />
+        <OrbitControls target={[0, 0, 0]} enabled={controlsEnabled} />
 
         <ambientLight intensity={0.5} />
         <directionalLight position={[100, 100, 50]} intensity={1.5} />
@@ -62,14 +65,15 @@ export default function Home() {
           radius={radius}
           color={color}
           wireframe={wireframe}
-          position={[0, -radius, 0]}
+          position={[0, 0, 0]}
         />
 
-        {/* Small marker at the center */}
-        <mesh position={[0, 0, 0]}>
-          <cylinderGeometry args={[0.2, 0.2, 1, 16]} />
-          <meshBasicMaterial color="lime" />
-        </mesh>
+        <DraggableCapsule
+          planetPosition={[0, 0, 0]}
+          planetRadius={radius}
+          onDragStart={() => setControlsEnabled(false)}
+          onDragEnd={() => setControlsEnabled(true)}
+        />
       </Canvas>
     </div>
   );
