@@ -1,5 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import * as THREE from 'three';
+import {
+  loadHeightMap,
+  sampleHeight,
+  getCylindricalUV,
+} from '../utils/heightmap';
+import type { HeightMapData } from '../utils/heightmap';
 
 const t = (1 + Math.sqrt(5)) / 2;
 
@@ -69,6 +75,8 @@ interface PlanetProps {
   wireframe?: boolean;
   position?: [number, number, number];
   targetPosition?: THREE.Vector3;
+  heightMapUrl?: string;
+  displacementScale?: number;
 }
 
 export default function Planet({
@@ -81,7 +89,19 @@ export default function Planet({
   wireframe = false,
   position = [0, 0, 0],
   targetPosition,
+  heightMapUrl,
+  displacementScale = 1,
 }: PlanetProps) {
+  const [heightMapData, setHeightMapData] = useState<HeightMapData | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (heightMapUrl) {
+      loadHeightMap(heightMapUrl).then(setHeightMapData);
+    }
+  }, [heightMapUrl]);
+
   const geometry = useMemo(() => {
     const vertices: number[] = [];
     const indices: number[] = [];
@@ -125,7 +145,14 @@ export default function Planet({
       if (vertexMap.has(key)) return vertexMap.get(key)!;
 
       const index = vertices.length / 3;
-      vertices.push(v.x * radius, v.y * radius, v.z * radius);
+
+      let d = 0;
+      if (heightMapData) {
+        const { u, v: uvV } = getCylindricalUV(v);
+        d = sampleHeight(u, uvV, heightMapData) * displacementScale;
+      }
+
+      vertices.push(v.x * (radius + d), v.y * (radius + d), v.z * (radius + d));
       vertexMap.set(key, index);
       return index;
     }
@@ -256,12 +283,14 @@ export default function Planet({
     color,
     position,
     targetPosition,
+    heightMapData,
+    displacementScale,
   ]);
 
   return (
     <group position={position}>
       <mesh geometry={geometry}>
-        <meshStandardMaterial color={color} flatShading />
+        <meshStandardMaterial color={color} />
       </mesh>
       {wireframe && (
         <mesh geometry={geometry}>

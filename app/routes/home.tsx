@@ -20,6 +20,7 @@ export default function Home() {
     radius,
     color,
     wireframe,
+    displacementScale,
   } = useControls({
     minResolution: {
       value: 4,
@@ -44,6 +45,7 @@ export default function Home() {
       label: 'Step Gamma',
     },
     radius: { value: 10, min: 1, max: 10 },
+    displacementScale: { value: 1.0, min: 0, max: 5.0, step: 0.1 },
     color: '#4169e1',
     wireframe: true,
   });
@@ -72,6 +74,8 @@ export default function Home() {
           wireframe={wireframe}
           position={[0, 0, 0]}
           targetPosition={capsulePosition}
+          heightMapUrl="/earth maps/earth_heightmap.png"
+          displacementScale={displacementScale}
         />
 
         <DraggableCapsule
