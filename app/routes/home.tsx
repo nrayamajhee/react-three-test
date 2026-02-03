@@ -74,7 +74,7 @@ export default function Home() {
           wireframe={wireframe}
           position={[0, 0, 0]}
           targetPosition={capsulePosition}
-          heightMapUrl="/earth maps/earth_heightmap.png"
+          heightMapUrl={`${import.meta.env.BASE_URL}earth_maps/earth_height.png`}
           displacementScale={displacementScale}
         />
 
