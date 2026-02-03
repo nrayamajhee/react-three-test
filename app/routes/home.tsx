@@ -1,6 +1,6 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
-import GeometryClipmap from "../components/GeometryClipmap";
+import SphericalClipmap from "../components/SphericalClipmap";
 
 export default function Home() {
   return (
@@ -8,7 +8,7 @@ export default function Home() {
       <Canvas gl={{ antialias: true }}>
         <PerspectiveCamera
           makeDefault
-          position={[0, 50, 100]}
+          position={[0, 150, 200]}
           near={0.1}
           far={20000}
         />
@@ -17,7 +17,14 @@ export default function Home() {
         <ambientLight intensity={0.5} />
         <directionalLight position={[100, 100, 50]} intensity={1} />
 
-        <GeometryClipmap levels={6} segments={64} color="#8B4513" wireframeColor="#DEB887" />
+        <group position={[0, -50, 0]}>
+          <SphericalClipmap />
+        </group>
+
+        <mesh position={[0, 0, 0]}>
+           <cylinderGeometry args={[0.2, 0.2, 1, 16]} />
+           <meshBasicMaterial color="lime" />
+        </mesh>
       </Canvas>
     </div>
   );
