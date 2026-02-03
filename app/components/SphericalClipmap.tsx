@@ -2,14 +2,14 @@ import { useControls } from 'leva';
 import StitchedFace from './StitchedFace';
 
 export default function SphericalClipmap() {
-  const { 
-    segments, 
-    radius, 
-    minScale, 
-    lodDelta, 
+  const {
+    segments,
+    radius,
+    minScale,
+    lodDelta,
     levels,
     color,
-    wireframeColor
+    wireframeColor,
   } = useControls({
     segments: { value: 64, min: 16, max: 128, step: 2 },
     radius: { value: 50, min: 10, max: 100 },
@@ -17,7 +17,7 @@ export default function SphericalClipmap() {
     lodDelta: { value: 2, options: [2] }, // Restricted to 2 for now as geometry logic is hardcoded for 2:1
     levels: { value: 6, min: 1, max: 8, step: 1 },
     color: '#8B4513',
-    wireframeColor: '#DEB887'
+    wireframeColor: '#DEB887',
   });
 
   // Calculate scales for each level
@@ -25,11 +25,11 @@ export default function SphericalClipmap() {
   // L1 = minScale * delta
   // ...
   // LN = minScale * delta^N
-  
+
   // Top Face consists of 'levels' nested clipmaps.
   // The Outermost Top Level (L_last) has scale: minScale * delta^(levels-1)
   // It stitches to Side Faces.
-  // Side Faces have scale: ??? 
+  // Side Faces have scale: ???
   // Side Faces should match the Outermost Top Level at the boundary.
   // Top Face is a full face of the cube.
   // The clipmap stack covers the Top Face.
@@ -49,7 +49,7 @@ export default function SphericalClipmap() {
   // L(levels-2) size = 2*R / delta.
   // ...
   // L0 size = 2*R / delta^(levels-1).
-  
+
   // Wait, user wants "radius selector for the first highest resolution subdivision".
   // Let's call this 'L0_Size'.
   // If L0_Size is fixed, then the number of levels determines the total coverage?
@@ -60,7 +60,7 @@ export default function SphericalClipmap() {
   // The "Outermost" ring of the Top Face must meet the Cube Edge.
   // So the Largest Level must have size >= 2*R.
   // Let's force the Largest Level (levels-1) to equal 2*R.
-  
+
   // But user wants 'minScale' (L0 size) control?
   // If we fix L0 and Delta, then Total Size depends on Levels.
   // If Total Size != 2*R, then the Top Face doesn't fit the cube?
@@ -70,7 +70,7 @@ export default function SphericalClipmap() {
   // So: Level (levels-1) MUST be size 2*radius.
   // This means 'minScale' is determined by Radius, Levels, and Delta.
   // minScale = (2*radius) / (delta^(levels-1)).
-  
+
   // Alternative: User controls 'minScale' (L0 size). We add enough levels to fill the face?
   // Or we just let 'levels' be fixed and 'minScale' derived?
   // User asked for "radius selector for the first highest resolution subdivision".
@@ -81,7 +81,7 @@ export default function SphericalClipmap() {
   // Then we need "Filler" rings?
   // Or we just say: The Top Face is L0..LN.
   // We clamp LN to size 2*R.
-  
+
   // Let's use the 'minScale' as the Base.
   // We generate levels until we exceed 2*R?
   // Or we just stick to:
@@ -90,7 +90,7 @@ export default function SphericalClipmap() {
   // If Ring i < 2*R, it's a full ring.
   // If Ring i >= 2*R, we clip it to the face boundary?
   // That's complex.
-  
+
   // Simpler approach for this demo:
   // Fix the Outermost Level to size 2*R (Full Face).
   // The 'minScale' control adjusts the *Inner* detail?
@@ -105,7 +105,7 @@ export default function SphericalClipmap() {
   // We will scale the levels such that the Outermost Level hits the edge.
   // The "radius selector" might effectively control the *density*?
   // Or maybe we treat the "radius selector" as the L0 Half-Width.
-  
+
   // Let's try: L0 Size = 'minScale'.
   // L1 = L0 * delta...
   // We render levels 0 to 'levels-1'.
@@ -133,11 +133,11 @@ export default function SphericalClipmap() {
   // If N is large, L0 is tiny (High Res density focus).
   // If N is small, L0 is large (Low Res).
   // This seems correct for LOD.
-  
+
   // Geometry Generation loop
   const topLevels = [];
   const maxScale = 1.0; // 1.0 = Full Face Width (relative to 2*radius)
-  
+
   for (let i = 0; i < levels; i++) {
     // Level i (0=Fine, levels-1=Coarse/Full)
     // Actually standard Clipmap: 0 is fine, N is coarse.
@@ -145,7 +145,7 @@ export default function SphericalClipmap() {
     // L_(levels-1) = 1.0.
     // L_i = 1.0 / (delta ^ (levels - 1 - i)).
     const relativeScale = 1.0 / Math.pow(lodDelta, levels - 1 - i);
-    
+
     topLevels.push({
       level: i,
       scale: relativeScale,
@@ -168,7 +168,7 @@ export default function SphericalClipmap() {
   const sideRatio = 2; // Top is Segments, Side is Segments/2. Ratio 2.
   // Note: Side Mesh is Coarser. Top Mesh (Finer) Stitches to Side.
   // So Top Level (levels-1) Boundary Stitches: { top:2, right:2, bottom:2, left:2 }.
-  
+
   // Side Meshes
   // Top Edge connects to Top Face.
   // Top Face Outer Ring is "Segments" resolution (density).
@@ -178,16 +178,16 @@ export default function SphericalClipmap() {
   // Does Side stitch to Top?
   // No, Finer stitches to Coarser. Top stitched to Side.
   // Side Top Edge is standard (Ratio 1).
-  
+
   // Side-Side Edges (Left/Right)
   // All Sides are same res. Ratio 1.
-  
+
   // Side-Bottom Edge
   // Bottom is Low detail? (Segments / 4).
   // Side is (Segments / 2).
   // Side is Finer than Bottom.
   // Side Bottom Edge stitches to Bottom (Ratio 2).
-  
+
   // Bottom Face
   // Connects to Sides (Finer).
   // Bottom is Coarser. Passive (Ratio 1).
@@ -202,8 +202,8 @@ export default function SphericalClipmap() {
           const isInner = i === 0; // L0 is full grid (no hole) unless we use ring for all?
           // Standard clipmap: L0 is full. L1..N are rings.
           const isHole = i > 0;
-          const holeSize = (1.0 / lodDelta); // Relative to current size. 1/2 for delta=2.
-          
+          const holeSize = 1.0 / lodDelta; // Relative to current size. 1/2 for delta=2.
+
           // Stitches
           // If Outer: Stitch to Sides (Ratio 2).
           // If Not Outer: Stitch to Next Level (Ratio 2, handled by ring logic? No.)
@@ -220,7 +220,7 @@ export default function SphericalClipmap() {
           // All Inner Levels Stitch = 2 (to their parent).
           // Outer Level Stitch = 2 (to Sides).
           // So ALL Top Levels have Stitch = 2 on all edges!
-          
+
           return (
             <StitchedFace
               key={`top-${i}`}
@@ -244,7 +244,7 @@ export default function SphericalClipmap() {
         // Top Edge: Connects to Top Face (Finer). Side is Coarser. Ratio 1.
         // Side Edges: Connect to Sides (Same). Ratio 1.
         // Bottom Edge: Connects to Bottom Face (Coarser). Side is Finer. Ratio 2.
-        
+
         // Wait, rotations.
         // PX (Right):
         // Top (y=R) -> Top Face.
@@ -261,7 +261,7 @@ export default function SphericalClipmap() {
         // Local Bottom (v=1) is Sphere Bottom.
         // So Side Top Edge -> Top Face.
         // Side Bottom Edge -> Bottom Face.
-        
+
         return (
           <StitchedFace
             key={face}

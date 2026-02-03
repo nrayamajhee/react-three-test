@@ -5,10 +5,10 @@ import * as THREE from 'three';
 // u, v: coordinates on the face, range [-radius, radius]
 // radius: sphere radius
 export const projectToSphere = (
-  u: number, 
-  v: number, 
-  radius: number, 
-  face: 'px' | 'nx' | 'py' | 'ny' | 'pz' | 'nz'
+  u: number,
+  v: number,
+  radius: number,
+  face: 'px' | 'nx' | 'py' | 'ny' | 'pz' | 'nz',
 ): THREE.Vector3 => {
   const vec = new THREE.Vector3();
 
