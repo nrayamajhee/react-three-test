@@ -7,6 +7,7 @@ interface DraggableCapsuleProps {
   planetRadius: number;
   onDragStart?: () => void;
   onDragEnd?: () => void;
+  onPositionChange?: (position: THREE.Vector3) => void;
 }
 
 export default function DraggableCapsule({
@@ -14,6 +15,7 @@ export default function DraggableCapsule({
   planetRadius,
   onDragStart,
   onDragEnd,
+  onPositionChange,
 }: DraggableCapsuleProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const { camera, raycaster } = useThree();
@@ -41,8 +43,9 @@ export default function DraggableCapsule({
         new THREE.Vector3(0, 1, 0),
         direction.current,
       );
+      onPositionChange?.(newPos);
     }
-  }, [planetCenter, orbitRadius, isDragging]);
+  }, [planetCenter, orbitRadius, isDragging, onPositionChange]);
 
   // Handle dragging logic
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
@@ -82,6 +85,8 @@ export default function DraggableCapsule({
           new THREE.Vector3(0, 1, 0),
           direction.current,
         );
+
+        onPositionChange?.(intersection.clone());
       }
     }
   };

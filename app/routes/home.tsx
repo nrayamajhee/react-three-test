@@ -2,11 +2,16 @@ import { useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import { useControls } from 'leva';
+import * as THREE from 'three';
 import Planet from '../components/Planet';
 import DraggableCapsule from '../components/DraggableCapsule';
 
 export default function Home() {
   const [controlsEnabled, setControlsEnabled] = useState(true);
+  const [capsulePosition, setCapsulePosition] = useState<THREE.Vector3>(
+    new THREE.Vector3(0, 10.7, 0),
+  );
+
   const {
     minResolution,
     maxResolution,
@@ -17,22 +22,22 @@ export default function Home() {
     wireframe,
   } = useControls({
     minResolution: {
-      value: 10,
+      value: 4,
       min: 0,
       max: 100,
       step: 1,
       label: 'Min Resolution',
     },
     maxResolution: {
-      value: 50,
+      value: 12,
       min: 1,
       max: 100,
       step: 1,
       label: 'Max Resolution',
     },
-    steps: { value: 5, min: 1, max: 10, step: 1, label: 'Steps' },
+    steps: { value: 4, min: 1, max: 10, step: 1, label: 'Steps' },
     stepGamma: {
-      value: 1.0,
+      value: 2.0,
       min: 0.1,
       max: 5.0,
       step: 0.1,
@@ -66,6 +71,7 @@ export default function Home() {
           color={color}
           wireframe={wireframe}
           position={[0, 0, 0]}
+          targetPosition={capsulePosition}
         />
 
         <DraggableCapsule
@@ -73,6 +79,7 @@ export default function Home() {
           planetRadius={radius}
           onDragStart={() => setControlsEnabled(false)}
           onDragEnd={() => setControlsEnabled(true)}
+          onPositionChange={setCapsulePosition}
         />
       </Canvas>
     </div>

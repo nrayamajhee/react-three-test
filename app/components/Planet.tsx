@@ -68,6 +68,7 @@ interface PlanetProps {
   color?: string;
   wireframe?: boolean;
   position?: [number, number, number];
+  targetPosition?: THREE.Vector3;
 }
 
 export default function Planet({
@@ -79,16 +80,34 @@ export default function Planet({
   color = 'royalblue',
   wireframe = false,
   position = [0, 0, 0],
+  targetPosition,
 }: PlanetProps) {
   const geometry = useMemo(() => {
     const vertices: number[] = [];
     const indices: number[] = [];
     const vertexMap = new Map<string, number>();
 
+    const planetCenter = new THREE.Vector3(...position);
+
     const getK = (v: THREE.Vector3) => {
-      const t_height = (v.y + 1) / 2;
-      const biasedHeight = Math.pow(t_height, stepGamma);
-      const levelIndex = Math.min(steps - 1, Math.floor(biasedHeight * steps));
+      // Calculate distance between vertex v and targetPosition
+      // Both are relative to world space for distance calculation
+      // v is a unit vector on the sphere surface in local space
+      const worldV = v.clone().multiplyScalar(radius).add(planetCenter);
+      const target = targetPosition || new THREE.Vector3(0, radius, 0);
+
+      // distance on the surface of the sphere
+      const dist = worldV.distanceTo(target);
+
+      // Normalize distance (max distance is 2 * radius)
+      // We want high detail when distance is small.
+      const maxDist = radius * 2;
+      const t_dist = Math.max(0, Math.min(1, dist / maxDist));
+
+      // Inverse of distance for detail: 0 at max distance, 1 at target
+      const detailFactor = Math.pow(1 - t_dist, stepGamma);
+
+      const levelIndex = Math.min(steps - 1, Math.floor(detailFactor * steps));
 
       let res: number;
       if (steps <= 1) {
@@ -228,7 +247,16 @@ export default function Planet({
     geo.setIndex(indices);
     geo.computeVertexNormals();
     return geo;
-  }, [radius, minDetail, maxDetail, steps, stepGamma, color]);
+  }, [
+    radius,
+    minDetail,
+    maxDetail,
+    steps,
+    stepGamma,
+    color,
+    position,
+    targetPosition,
+  ]);
 
   return (
     <group position={position}>
