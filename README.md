@@ -1,4 +1,4 @@
-# React router project with react-three-fiber
+# more react-three-fiber
 
 Vibe coded Icosphere with LOD and displacement map.
 
@@ -63,4 +63,4 @@ These images were combined and processed for use in this project.
 
 Source available. All rights reserved.
 
-In the era of stolen knowledge and exploited labor, I am not sure if this claim of copyright even makes any sense. I paid in tokens to product them, so I shall lay claim.
+In the era of stolen knowledge and exploited labor, I am not sure if this claim of copyright even makes any sense. I paid in tokens to produce them, so I shall lay claim.
