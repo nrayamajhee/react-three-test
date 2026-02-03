@@ -7,6 +7,14 @@ import {
 } from '../utils/heightmap';
 import type { HeightMapData } from '../utils/heightmap';
 
+/**
+ * ============================================================================
+ * GEOMETRIC CONSTANTS
+ * ============================================================================
+ * We start with a Golden Ratio based Icosahedron as our base primitive.
+ * An icosahedron is a regular polyhedron with 20 identical equilateral
+ * triangular faces, 30 edges and 12 vertices.
+ */
 const t = (1 + Math.sqrt(5)) / 2;
 
 const ICOSAHEDRON_VERTICES = [
@@ -48,11 +56,17 @@ const ICOSAHEDRON_FACES = [
 ];
 
 /**
- * Spherical Linear Interpolation between two vectors.
+ * ============================================================================
+ * SPHERICAL LINEAR INTERPOLATION (SLERP)
+ * ============================================================================
+ * Standard lerp (linear interpolation) doesn't work well on spheres because
+ * it cuts through the volume. Slerp interpolates along the arc of the sphere,
+ * maintaining a constant radius.
  */
 function slerp(v1: THREE.Vector3, v2: THREE.Vector3, t: number): THREE.Vector3 {
   const dot = Math.max(-1, Math.min(1, v1.dot(v2)));
 
+  // If vectors are nearly identical, use standard lerp for stability
   if (dot > 0.9999) {
     return new THREE.Vector3().copy(v1).lerp(v2, t).normalize();
   }
@@ -79,6 +93,14 @@ interface PlanetProps {
   displacementScale?: number;
 }
 
+/**
+ * ============================================================================
+ * PLANET COMPONENT
+ * ============================================================================
+ * A dynamic, LOD-based planet renderer. It generates a spherical mesh
+ * starting from an icosahedron and subdivides faces based on proximity
+ * to a target position (e.g., the camera).
+ */
 export default function Planet({
   radius = 1,
   minDetail = 0,
@@ -92,16 +114,26 @@ export default function Planet({
   heightMapUrl,
   displacementScale = 1,
 }: PlanetProps) {
+  // Heightmap data state for vertex displacement
   const [heightMapData, setHeightMapData] = useState<HeightMapData | null>(
     null,
   );
 
+  // Load heightmap when URL changes
   useEffect(() => {
     if (heightMapUrl) {
       loadHeightMap(heightMapUrl).then(setHeightMapData);
     }
   }, [heightMapUrl]);
 
+  /**
+   * ============================================================================
+   * GEOMETRY GENERATION
+   * ============================================================================
+   * This useMemo block contains the heavy lifting for generating the
+   * planet's geometry. It recalculated whenever LOD parameters or
+   * position change.
+   */
   const geometry = useMemo(() => {
     const vertices: number[] = [];
     const indices: number[] = [];
@@ -109,24 +141,23 @@ export default function Planet({
 
     const planetCenter = new THREE.Vector3(...position);
 
+    /**
+     * LOD Calculation Function (getK)
+     * Determines the subdivision level (k) for a given point on the sphere.
+     * Higher k = more detail (smaller triangles).
+     */
     const getK = (v: THREE.Vector3) => {
-      // Calculate distance between vertex v and targetPosition
-      // Both are relative to world space for distance calculation
-      // v is a unit vector on the sphere surface in local space
+      // worldV is the point on the sphere in world space
       const worldV = v.clone().multiplyScalar(radius).add(planetCenter);
+      // Default to top of sphere if no target provided
       const target = targetPosition || new THREE.Vector3(0, radius, 0);
 
-      // distance on the surface of the sphere
       const dist = worldV.distanceTo(target);
-
-      // Normalize distance (max distance is 2 * radius)
-      // We want high detail when distance is small.
       const maxDist = radius * 2;
       const t_dist = Math.max(0, Math.min(1, dist / maxDist));
 
-      // Inverse of distance for detail: 0 at max distance, 1 at target
+      // detailFactor increases as distance decreases
       const detailFactor = Math.pow(1 - t_dist, stepGamma);
-
       const levelIndex = Math.min(steps - 1, Math.floor(detailFactor * steps));
 
       let res: number;
@@ -139,26 +170,42 @@ export default function Planet({
       return Math.max(1, Math.round(res));
     };
 
+    /**
+     * Vertex Index Management
+     * Ensures we don't create duplicate vertices and applies height displacement.
+     */
     function getVertexIndex(v: THREE.Vector3): number {
       const precision = 6;
       const key = `${v.x.toFixed(precision)},${v.y.toFixed(precision)},${v.z.toFixed(precision)}`;
+
+      // Return existing index if vertex was already processed
       if (vertexMap.has(key)) return vertexMap.get(key)!;
 
       const index = vertices.length / 3;
 
+      // Apply displacement from heightmap
       let d = 0;
       if (heightMapData) {
         const { u, v: uvV } = getCylindricalUV(v);
         d = sampleHeight(u, uvV, heightMapData) * displacementScale;
       }
 
+      // Add displaced vertex position to array
       vertices.push(v.x * (radius + d), v.y * (radius + d), v.z * (radius + d));
       vertexMap.set(key, index);
       return index;
     }
 
+    // Base subdivision level for all faces
     const baseSub = Math.max(1, Math.min(minDetail || 1, 5));
 
+    /**
+     * MAIN SUBDIVISION LOOP
+     * 1. Iterate through base icosahedron faces.
+     * 2. Subdivide each face into 'baseSub' chunks.
+     * 3. For each chunk, calculate LOD (k) and generate a grid of vertices.
+     * 4. Stitch vertices into triangles.
+     */
     for (const faceIndices of ICOSAHEDRON_FACES) {
       const A = ICOSAHEDRON_VERTICES[faceIndices[0]];
       const B = ICOSAHEDRON_VERTICES[faceIndices[1]];
@@ -166,6 +213,10 @@ export default function Planet({
 
       for (let i = 0; i < baseSub; i++) {
         for (let j = 0; j <= i; j++) {
+          /**
+           * processSubFace: Handles the actual grid generation for a
+           * triangular patch.
+           */
           const processSubFace = (
             v1: THREE.Vector3,
             v2: THREE.Vector3,
@@ -180,13 +231,14 @@ export default function Planet({
             const m13 = slerp(v1, v3, 0.5);
             const m23 = slerp(v2, v3, 0.5);
 
+            // Determine max k among edges and center for consistent borders
             const k_f = getK(center);
             const k_e1 = getK(m12);
             const k_e2 = getK(m13);
             const k_e3 = getK(m23);
-
             const k = Math.max(k_f, k_e1, k_e2, k_e3);
 
+            // Generate vertex grid for the patch
             const faceGrid: number[][] = [];
             for (let r = 0; r <= k; r++) {
               faceGrid[r] = [];
@@ -197,6 +249,7 @@ export default function Planet({
               for (let c = 0; c <= r; c++) {
                 let v: THREE.Vector3;
 
+                // Snap edges to ensure crack-free transitions between LOD levels
                 if (r === k) {
                   const t = c / k;
                   const t_snapped = Math.round(t * k_e3) / k_e3;
@@ -216,6 +269,7 @@ export default function Planet({
               }
             }
 
+            // Create triangles from the grid
             for (let r = 0; r < k; r++) {
               for (let c = 0; c < r; c++) {
                 const i1 = faceGrid[r][c];
@@ -235,6 +289,7 @@ export default function Planet({
             }
           };
 
+          // Calculate sub-patch corners
           const v1 = slerp(
             slerp(A, B, i / baseSub),
             slerp(A, C, i / baseSub),
@@ -252,6 +307,7 @@ export default function Planet({
           );
           processSubFace(v1, v2, v3);
 
+          // Handle the "upside-down" triangle in the subdivision grid
           if (j < i) {
             const vd1 = v1;
             const vd2 = v3;
@@ -266,6 +322,7 @@ export default function Planet({
       }
     }
 
+    // Finalize BufferGeometry
     const geo = new THREE.BufferGeometry();
     geo.setAttribute(
       'position',
@@ -289,9 +346,12 @@ export default function Planet({
 
   return (
     <group position={position}>
+      {/* Primary Planet Mesh */}
       <mesh geometry={geometry}>
         <meshStandardMaterial color={color} />
       </mesh>
+
+      {/* Optional Wireframe Overlay */}
       {wireframe && (
         <mesh geometry={geometry}>
           <meshBasicMaterial

@@ -12,66 +12,43 @@ Vibe coded Icosphere with LOD and displacement map.
 
 ## 🌍 The Planet Geometry Algorithm
 
-The challenge of rendering a planet lies in managing complexity at scale. This project addresses that through a multi-stage geometric pipeline:
+The project implements a custom dynamic Level of Detail (LOD) system to render detailed planetary surfaces efficiently. The algorithm follows a multi-stage geometric pipeline:
 
 ### 1. The Icosahedral Foundation
 
-We begin with a unit **Icosahedron**. As a Platonic solid with 20 equilateral faces, it provides the most uniform distribution of vertices for a spherical projection, minimizing the distortion found in standard UV spheres.
+We start with a unit **Icosahedron** defined by the Golden Ratio ($t = \frac{1 + \sqrt{5}}{2}$). As a Platonic solid with 20 equilateral faces, it provides a highly uniform vertex distribution, serving as the perfect base for spherical projection with minimal distortion.
 
-### 2. Topological Displacement (Height Maps)
+### 2. Spherical Linear Interpolation (Slerp)
 
-To move beyond a perfect sphere, we sample height data $H(v)$—sourced from procedural noise or textures—using the normalized vertex vector as a spherical coordinate.
-$$V_{final} = V_{unit} \times (Radius + H(V_{unit}) \times ElevationScale)$$
-Post-displacement, normals are recalculated to ensure that lighting accurately reflects the new terrain.
+Standard linear interpolation (Lerp) would cause the mesh to "flatten" between vertices, losing the spherical shape. We use **Slerp** to interpolate along the arc of the sphere:
+$$Slerp(v_1, v_2, t) = \frac{\sin((1-t)\theta)}{\sin\theta}v_1 + \frac{\sin(t\theta)}{\sin\theta}v_2$$
+This ensures every generated vertex maintains a constant radius before displacement.
 
-### 3. Intelligence in Detail (Dynamic LOD)
+### 3. Dynamic Level of Detail (LOD)
 
-Density is not applied uniformly. The algorithm evaluates "targets" to decide where triangles are most needed:
+The resolution of the mesh is calculated dynamically based on proximity to a **target position** (usually the camera):
 
-- **Proximity**: Higher resolution is allocated based on the camera's distance, using a non-linear decay $\gamma$ to preserve detail where it matters most.
-- **Feature Density**: Latitude-based or height-based biases allow for specialized detail in polar or mountainous regions.
-- **Quantization**: LOD levels are stepped to prevent "mesh popping" and to allow for efficient vertex caching.
+- **Distance-Based Scaling**: Detail factor is calculated using an inverse distance function.
+- **Step Gamma**: A $\gamma$ power is applied to the distance factor to control the "falloff" of detail, preserving high resolution near the target.
+- **Quantized Steps**: The final subdivision level ($k$) is snapped to discrete steps to allow for efficient vertex caching and predictable mesh transitions.
 
-### 4. Geometric Synthesis (Pseudocode)
+### 4. Crack-Free Subdivision & Seam Management
 
-The vertex generation logic focuses on maintaining a seamless manifold while transitioning between subdivision levels:
+To prevent visible cracks (T-junctions) between neighboring patches of different resolutions, the algorithm implements a **Snap-to-Grid** strategy:
 
-```javascript
-function generateGeometry(v1, v2, v3, edgeResolutions, centerResolution) {
-  // Determine the maximum required density for this patch
-  const maxK = Math.max(...Object.values(edgeResolutions), centerResolution);
-  const vertices = [];
-  const indices = [];
+- **Max-Edge Resolution**: Each triangular patch evaluates the required resolution ($k$) for its center and its three edges. It then uses the maximum of these values to ensure edges match.
+- **Edge Snapping**: Boundary vertices are explicitly snapped to the resolution of the neighboring edge, ensuring a perfectly sealed manifold regardless of the LOD variance.
 
-  // 1. Barycentric Grid Generation
-  // We use Slerp (Spherical Linear Interpolation) to maintain
-  // equidistant placement on the sphere's surface.
-  for (let i = 0; i <= maxK; i++) {
-    for (let j = 0; j <= maxK - i; j++) {
-      const k = maxK - i - j;
-      let pos = slerp3Way(v1, v2, v3, i / maxK, j / maxK, k / maxK);
+### 5. Topological Displacement
 
-      // 2. Seam Management (Snap-to-Grid)
-      // Boundary vertices are snapped to the neighbor's resolution
-      // to eliminate T-junctions and visible cracks.
-      if (isBoundary(i, j, k, maxK)) {
-        pos = snapToEdgeResolution(pos, i, j, k, edgeResolutions);
-      }
+Vertices are mapped to **Cylindrical UV coordinates** to sample a heightmap. The final vertex position is displaced along its normal:
+$$V_{final} = V_{unit} \times (Radius + SampleHeight(U, V) \times Scale)$$
+Post-displacement, normals are recalculated using `computeVertexNormals()` to ensure lighting reacts accurately to the terrain.
 
-      vertices.push(pos);
-    }
-  }
+### 6. Geometric Synthesis & Optimization
 
-  // 3. Manifold Indexing
-  // Triangles are generated while filtering out degenerate (zero-area)
-  // faces created during the snapping phase.
-  return { vertices, indices: generateIndices(maxK, vertices) };
-}
-```
-
-### 5. Finalization & Optimization
-
-Each icosahedral face undergoes a **Hierarchical Subdivision**. We first split the face into a base grid, then process each sub-triangle individually. Final vertices are deduplicated via a precision-weighted hash map, and normals are computed for smooth, realistic shading.
+- **Base Subdivision**: The icosahedron is first split into base patches (`baseSub`) for better LOD granularity.
+- **Precision-Weighted Hashing**: Vertices are deduplicated using a precision-limited string key (e.g., 6 decimal places) in a hash map, ensuring a smooth, single-manifold mesh without redundant data.
 
 ## Credits
 
@@ -87,4 +64,3 @@ These images were combined and processed for use in this project.
 Source available. All rights reserved.
 
 In the era of stolen knowledge and exploited labor, I am not sure if this claim of copyright even makes any sense. I paid in tokens to product them, so I shall lay claim.
-
